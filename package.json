@@ -1,0 +1,20 @@
+{
+  "name": "json-schema-to-markdown-table",
+  "version": "1.0.0",
+  "description": "Turn a JSON Schema into a markdown table.",
+  "main": "index.js",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/CINEPASS/json-schema-to-markdown-table.git"
+  },
+  "keywords": [
+    "json-schema",
+    "markdown"
+  ],
+  "author": "Martin Stemmle",
+  "license": "VOL",
+  "bugs": {
+    "url": "https://github.com/CINEPASS/json-schema-to-markdown-table/issues"
+  },
+  "homepage": "https://github.com/CINEPASS/json-schema-to-markdown-table"
+}
