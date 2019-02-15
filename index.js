@@ -1,4 +1,4 @@
-var _ = require('underscore');
+var _ = require('lodash');
 
 // This is really messy, and I apologize for that.
 
@@ -40,7 +40,7 @@ function generateSinglePropertyRestriction(schema) {
   }
 }
 
-function generateSchemaSectionText(prefix, name, isRequired, schema, subSchemas) {
+function generateSchemaSectionText(prefix, name, isRequired, schema, subSchemas, noPropertyTableHeader) {
   var schemaType = getActualType(schema, subSchemas)
 
   var isNullable = false;
@@ -118,8 +118,8 @@ function generateSchemaSectionText(prefix, name, isRequired, schema, subSchemas)
 
 
 
-  if (schemaType === 'object') {
-    generatePropertySection(fullname, schema, subSchemas).forEach(function(section) {
+  if (schemaType.properties) {
+    generatePropertySection(fullname, schema, subSchemas, noPropertyTableHeader).forEach(function(section) {
       text = text.concat(section)
     })
   } else if (schemaType === 'array') {
@@ -127,8 +127,8 @@ function generateSchemaSectionText(prefix, name, isRequired, schema, subSchemas)
     if (!itemsType && schema.items['$ref']) {
       itemsType = getActualType(schema.items, subSchemas)
     }
-    if (itemsType === 'object') {
-      generatePropertySection((prefix ? prefix : '') + arrayIndentPrefix , schema.items, subSchemas).forEach(function(section) {
+    if (itemsType.properties) {
+      generatePropertySection((prefix ? prefix : '') + arrayIndentPrefix , schema.items, subSchemas, noPropertyTableHeader).forEach(function(section) {
         text = text.concat(section)
       })
     }
@@ -138,22 +138,24 @@ function generateSchemaSectionText(prefix, name, isRequired, schema, subSchemas)
   return text
 }
 
-function generatePropertySection(prefix, schema, subSchemas) {
+function generatePropertySection(prefix, schema, subSchemas, noPropertyTableHeader) {
   if (schema.properties) {
     var properties = Object.keys(schema.properties).map(function(propertyKey) {
       var propertyIsRequired = schema.required && schema.required.indexOf(propertyKey) >= 0
       if (schema.noDocs && schema.noDocs.indexOf(propertyKey) != -1) {
         return null;
       }
-      return generateSchemaSectionText(prefix, propertyKey, propertyIsRequired, schema.properties[propertyKey], subSchemas)
+      return generateSchemaSectionText(prefix, propertyKey, propertyIsRequired, schema.properties[propertyKey], subSchemas, noPropertyTableHeader)
     })
 
     if (prefix) {
       return properties
     } else {
       var rows = []
-      rows.push('|property|type|nullable|description|')
-      rows.push('|--------|----|--------|-----------|')
+      if (!noPropertyTableHeader) {
+        rows.push('|property|type|nullable|description|')
+        rows.push('|--------|----|--------|-----------|')
+      }
       properties.forEach(function(section) {
         if (section) {
           rows = rows.concat(section)  
@@ -185,7 +187,7 @@ function getActualType(schema, subSchemas) {
   }
 }
 
-module.exports = function(schema) {
+module.exports = function(schema, noPropertyTableHeader) {
   var subSchemaTypes = Object.keys(schema.definitions || {}).reduce(function(map, subSchemaTypeName) {
     map['#/definitions/' + subSchemaTypeName] = subSchemaTypeName
     return map
@@ -200,8 +202,8 @@ module.exports = function(schema) {
     text.push(schema.description)
   }
 
-  if (schema.type === 'object') {
-    generatePropertySection(null, schema, subSchemaTypes).forEach(function(section) {
+  if (schema.properties) {
+    generatePropertySection(null, schema, subSchemaTypes, noPropertyTableHeader).forEach(function(section) {
       text = text.concat(section)
     })
 
@@ -221,13 +223,21 @@ module.exports = function(schema) {
     Object.keys(schema.definitions).forEach(function(subSchemaTypeName) {
       text.push('## `' + subSchemaTypeName + '` (' + schema.definitions[subSchemaTypeName].type + ')')
       text.push(schema.definitions[subSchemaTypeName].description)
-      generatePropertySection(null, schema.definitions[subSchemaTypeName], subSchemaTypes).forEach(function(section) {
+      generatePropertySection(null, schema.definitions[subSchemaTypeName], subSchemaTypes, noPropertyTableHeader).forEach(function(section) {
         text = text.concat(section)
       })
     })
   }
 
+  if (schema.allOf) {
+    text.push(
+      schema.allOf
+        .map((s, i) => module.exports(s, i !== 0))
+        .join('\n')
+    );
+  }
   return text.filter(function(line) {
     return !!line
   }).join('\n\n')
 }
+
