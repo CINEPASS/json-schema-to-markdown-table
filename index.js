@@ -188,6 +188,9 @@ function getActualType(schema, subSchemas) {
 }
 
 module.exports = function(schema, childOfTable) {
+  if (!schema) {
+    return;
+  }
   var subSchemaTypes = Object.keys(schema.definitions || {}).reduce(function(map, subSchemaTypeName) {
     map['#/definitions/' + subSchemaTypeName] = subSchemaTypeName
     return map
