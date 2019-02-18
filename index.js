@@ -115,10 +115,7 @@ function generateSchemaSectionText(prefix, name, isRequired, schema, subSchemas,
   row.push('')
   text.push(row.join('|'));
 
-
-
-
-  if (schemaType.properties) {
+  if (schemaType && schemaType.properties) {
     generatePropertySection(fullname, schema, subSchemas, childOfTable).forEach(function(section) {
       text = text.concat(section)
     })
@@ -127,7 +124,7 @@ function generateSchemaSectionText(prefix, name, isRequired, schema, subSchemas,
     if (!itemsType && schema.items['$ref']) {
       itemsType = getActualType(schema.items, subSchemas)
     }
-    if (itemsType.properties) {
+    if (itemsType && itemsType.properties) {
       generatePropertySection((prefix ? prefix : '') + arrayIndentPrefix , schema.items, subSchemas, childOfTable).forEach(function(section) {
         text = text.concat(section)
       })
