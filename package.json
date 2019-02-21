@@ -12,9 +12,15 @@
     "markdown"
   ],
   "author": "Martin Stemmle",
+  "contributors": [
+    "Shane Jonas"
+  ],
   "license": "VOL",
   "bugs": {
     "url": "https://github.com/CINEPASS/json-schema-to-markdown-table/issues"
   },
-  "homepage": "https://github.com/CINEPASS/json-schema-to-markdown-table"
+  "homepage": "https://github.com/CINEPASS/json-schema-to-markdown-table",
+  "dependencies": {
+    "lodash": "^4.17.11"
+  }
 }

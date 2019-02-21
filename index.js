@@ -1,4 +1,4 @@
-var _ = require('underscore');
+var _ = require('lodash');
 
 // This is really messy, and I apologize for that.
 
@@ -40,7 +40,7 @@ function generateSinglePropertyRestriction(schema) {
   }
 }
 
-function generateSchemaSectionText(prefix, name, isRequired, schema, subSchemas) {
+function generateSchemaSectionText(prefix, name, isRequired, schema, subSchemas, childOfTable) {
   var schemaType = getActualType(schema, subSchemas)
 
   var isNullable = false;
@@ -115,11 +115,8 @@ function generateSchemaSectionText(prefix, name, isRequired, schema, subSchemas)
   row.push('')
   text.push(row.join('|'));
 
-
-
-
-  if (schemaType === 'object') {
-    generatePropertySection(fullname, schema, subSchemas).forEach(function(section) {
+  if (schemaType && schemaType.properties) {
+    generatePropertySection(fullname, schema, subSchemas, childOfTable).forEach(function(section) {
       text = text.concat(section)
     })
   } else if (schemaType === 'array') {
@@ -127,8 +124,8 @@ function generateSchemaSectionText(prefix, name, isRequired, schema, subSchemas)
     if (!itemsType && schema.items['$ref']) {
       itemsType = getActualType(schema.items, subSchemas)
     }
-    if (itemsType === 'object') {
-      generatePropertySection((prefix ? prefix : '') + arrayIndentPrefix , schema.items, subSchemas).forEach(function(section) {
+    if (itemsType && itemsType.properties) {
+      generatePropertySection((prefix ? prefix : '') + arrayIndentPrefix , schema.items, subSchemas, childOfTable).forEach(function(section) {
         text = text.concat(section)
       })
     }
@@ -138,27 +135,29 @@ function generateSchemaSectionText(prefix, name, isRequired, schema, subSchemas)
   return text
 }
 
-function generatePropertySection(prefix, schema, subSchemas) {
+function generatePropertySection(prefix, schema, subSchemas, childOfTable) {
   if (schema.properties) {
     var properties = Object.keys(schema.properties).map(function(propertyKey) {
       var propertyIsRequired = schema.required && schema.required.indexOf(propertyKey) >= 0
       if (schema.noDocs && schema.noDocs.indexOf(propertyKey) != -1) {
         return null;
       }
-      return generateSchemaSectionText(prefix, propertyKey, propertyIsRequired, schema.properties[propertyKey], subSchemas)
+      return generateSchemaSectionText(prefix, propertyKey, propertyIsRequired, schema.properties[propertyKey], subSchemas, childOfTable)
     })
 
     if (prefix) {
       return properties
     } else {
       var rows = []
-      rows.push('|property|type|nullable|description|')
-      rows.push('|--------|----|--------|-----------|')
+      if (!childOfTable) {
+        rows.push('|Property|Type|Nullable|Description|')
+        rows.push('|--------|----|--------|-----------|')
+      }
       properties.forEach(function(section) {
         if (section) {
-          rows = rows.concat(section)  
-        }        
-      })
+          rows = rows.concat(section)
+        }
+      });
       return [rows.join('\n')]
     }
 
@@ -185,7 +184,10 @@ function getActualType(schema, subSchemas) {
   }
 }
 
-module.exports = function(schema) {
+module.exports = function(schema, childOfTable) {
+  if (!schema) {
+    return;
+  }
   var subSchemaTypes = Object.keys(schema.definitions || {}).reduce(function(map, subSchemaTypeName) {
     map['#/definitions/' + subSchemaTypeName] = subSchemaTypeName
     return map
@@ -193,19 +195,19 @@ module.exports = function(schema) {
 
   var text = []
 
-  if (schema.title) {
-    text.push('# ' + schema.title)
-  }
   if (schema.description) {
     text.push(schema.description)
   }
 
-  if (schema.type === 'object') {
-    generatePropertySection(null, schema, subSchemaTypes).forEach(function(section) {
+  if (schema.properties) {
+    generatePropertySection(null, schema, subSchemaTypes, childOfTable).forEach(function(section) {
       text = text.concat(section)
     })
 
-  } else if (schema.type === 'array') {}
+  } else if (schema.type === 'array') {
+    text.push('###### Array of');
+    text.push(module.exports(schema.items));
+  }
 
   if (schema.definitions && schema.noDocs) {
     Object.keys(schema.definitions).forEach(function(subSchemaTypeName) {
@@ -221,13 +223,21 @@ module.exports = function(schema) {
     Object.keys(schema.definitions).forEach(function(subSchemaTypeName) {
       text.push('## `' + subSchemaTypeName + '` (' + schema.definitions[subSchemaTypeName].type + ')')
       text.push(schema.definitions[subSchemaTypeName].description)
-      generatePropertySection(null, schema.definitions[subSchemaTypeName], subSchemaTypes).forEach(function(section) {
+      generatePropertySection(null, schema.definitions[subSchemaTypeName], subSchemaTypes, childOfTable).forEach(function(section) {
         text = text.concat(section)
       })
     })
   }
 
+  if (schema.allOf) {
+    text.push(
+      schema.allOf
+        .map((s, i) => module.exports(s, i !== 0))
+        .join('\n')
+    );
+  }
   return text.filter(function(line) {
     return !!line
   }).join('\n\n')
 }
+
